@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Corrida Insana LIVE</title>
+<style>
+:root{color-scheme:dark;--orange:#ff7a18;--yellow:#ffd42a}
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 50% 0,#182b4a,#080b12 60%);color:#fff;font-family:system-ui,Arial,sans-serif}
+main{max-width:900px;margin:auto;padding:16px}.top{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+h1{font-size:clamp(26px,6vw,48px);font-weight:1000;font-style:italic;line-height:.95;margin:12px 0;color:var(--yellow);text-shadow:3px 3px #b52d10}
+.panel{background:#101722;border:1px solid #34445c;border-radius:16px;padding:14px;margin:12px 0;box-shadow:0 8px 30px #0005}
+.controls{display:flex;gap:8px;flex-wrap:wrap}input{flex:1;min-width:170px;background:#080d15;border:1px solid #40516b;border-radius:10px;color:white;padding:13px;font-size:16px}
+button{border:0;border-radius:10px;padding:12px 15px;background:var(--orange);color:#180b03;font-weight:900;font-size:14px}button.secondary{background:#29384d;color:white}button:disabled{opacity:.45}
+.status{font-size:13px;color:#aebbd0;margin-top:8px}.track{background:linear-gradient(#303d50 0 48%,#111a27 48% 52%,#303d50 52%);border:4px solid #8492a6;border-radius:14px;padding:12px;overflow:hidden;position:relative}
+.finish{position:absolute;right:10px;top:0;bottom:0;width:12px;background:repeating-linear-gradient(0deg,#fff 0 8px,#111 8px 16px);opacity:.9}
+.lane{height:64px;border-bottom:2px dashed #ffffff55;display:flex;align-items:center;position:relative;padding-right:24px}.lane:last-child{border:0}
+.vehicle{font-size:30px;position:absolute;left:0;transition:left .35s ease;filter:drop-shadow(0 3px 4px #000)}
+.racername{position:absolute;left:0;top:2px;font-size:11px;color:#fff;text-shadow:0 1px 3px #000;max-width:55%;overflow:hidden;white-space:nowrap}
+.feed{height:105px;overflow:auto;color:#cbd5e1;font-size:13px}.feed div{padding:3px 0;border-bottom:1px solid #ffffff10}
+.big{font-size:20px;font-weight:900}.muted{color:#aebbd0;font-size:13px}.pill{border:1px solid #53647d;border-radius:99px;padding:6px 10px;font-size:12px}
+@media(min-width:650px){main{padding:28px}.panel{padding:18px}}
+</style>
+</head>
+<body><main>
+<div class="top"><div><div class="pill">🏁 JOGO INTERATIVO PARA TIKTOK LIVE</div><h1>CORRIDA<br>INSANA LIVE</h1></div><div class="pill" id="connection">⚪ Desconectado</div></div>
+<section class="panel">
+ <div class="big">Conectar à sua LIVE</div><p class="muted">Digite seu @ público do TikTok. A LIVE precisa estar aberta e pública.</p>
+ <div class="controls"><input id="username" value="fruta_dramas" placeholder="seu_usuario"><button id="connect">CONECTAR</button><button class="secondary" id="disconnect">DESCONECTAR</button></div>
+ <div class="status" id="status">Aguardando conexão. Não informe senha nem código de acesso.</div>
+</section>
+<section class="panel">
+ <div class="top"><div><div class="big">🏎️ A PISTA</div><div class="muted">Comente CARRO ou MOTO na LIVE para entrar.</div></div><div class="pill" id="count">0/8 pilotos</div></div>
+ <div class="track" id="track"><div class="finish"></div><div class="muted" style="padding:20px;text-align:center">Aguardando os primeiros pilotos...</div></div>
+ <div class="controls" style="margin-top:12px"><button id="start">🚦 INICIAR CORRIDA</button><button class="secondary" id="reset">LIMPAR PISTA</button></div>
+ <div class="status" id="winner"></div>
+</section>
+<section class="panel"><div class="big">📣 Atividade da LIVE</div><div class="feed" id="feed"><div>O chat aparecerá aqui quando a conexão estiver ativa.</div></div></section>
+<p class="muted">Versão de testes 0.1 • Integração não oficial • Não é afiliado ao TikTok.</p>
+</main>
+<script src="/socket.io/socket.io.js"></script>
+<script>
+const socket=io();const $=id=>document.getElementById(id);let racers=[];
+function msg(t){const d=document.createElement("div");d.textContent=t;$("feed").prepend(d);while($("feed").children.length>30)$("feed").lastChild.remove()}
+function render(){ $("count").textContent=`${racers.length}/8 pilotos`;const track=$("track");track.innerHTML='<div class="finish"></div>';if(!racers.length){track.insertAdjacentHTML("beforeend",'<div class="muted" style="padding:20px;text-align:center">Aguardando os primeiros pilotos...</div>');return}
+racers.forEach((r,i)=>{const lane=document.createElement("div");lane.className="lane";const name=document.createElement("div");name.className="racername";name.textContent=r.name;const car=document.createElement("div");car.className="vehicle";car.textContent=r.vehicle==="moto"?"🏍️":"🏎️";car.style.left=`${Math.min(82,r.progress*.82)}%`;lane.append(name,car);track.append(lane)})}
+$("connect").onclick=()=>{const u=$("username").value.trim().replace(/^@/,"");if(u)socket.emit("connect-tiktok",u)};
+$("disconnect").onclick=()=>socket.emit("disconnect-tiktok");
+$("start").onclick=()=>{ $("winner").textContent="";socket.emit("start-race")};
+$("reset").onclick=()=>{ $("winner").textContent="";socket.emit("reset-race")};
+socket.on("race-state",s=>{racers=s.racers||[];render();$("connection").textContent=s.connected?"🟢 Conectado":"⚪ Desconectado";if(s.connecting)$("status").textContent="Conectando à LIVE...";else if(s.connected)$("status").textContent=`Conectado à LIVE de @${s.creator}`});
+socket.on("connection-status",t=>{$("status").textContent=t;msg(t)});
+socket.on("connection-error",t=>{$("status").textContent="Falha: "+t;msg("ERRO: "+t)});
+socket.on("chat-event",e=>msg("@"+e.user+": "+e.content));
+socket.on("game-message",msg);
+socket.on("race-winner",n=>{$("winner").textContent="🏆 VENCEDOR: @"+n+"!";msg("🏆 VENCEDOR: @"+n)});
+socket.on("race-start",()=>msg("🚦 A corrida começou!"));
+setInterval(()=>socket.emit("heartbeat"),25000);
+</script></body></html>
